@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 
 // A heading that folds what is under it away: the title, an optional one-line summary of
 // the current choice while folded, and a chevron that points right when closed and down
@@ -17,6 +18,9 @@ Item
 	property bool small: true
 
 	property bool expanded: false
+	ToolTip.visible: headerHover.hovered && !expanded && summary.length > 0
+	ToolTip.delay: 500
+	ToolTip.text: summary
 
 	width: parent ? parent.width : implicitWidth
 	implicitHeight: rootHeader.small ? 40 : 46

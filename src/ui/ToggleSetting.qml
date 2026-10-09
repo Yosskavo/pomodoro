@@ -13,11 +13,12 @@ Item
 
 	signal toggleRequested(bool wanted)
 
-	implicitHeight: 48
+	implicitHeight: Math.max(48, labelText.implicitHeight + 16)
 	width: parent ? parent.width : implicitWidth
 
 	Text
 	{
+		id: labelText
 		anchors.left: parent.left
 		anchors.right: track.left
 		anchors.rightMargin: 12
@@ -26,7 +27,7 @@ Item
 		text: rootToggle.label
 		color: "white"
 		font.pixelSize: 15
-		elide: Text.ElideRight
+		wrapMode: Text.WordWrap
 	}
 
 	Rectangle
