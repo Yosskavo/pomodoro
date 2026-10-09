@@ -299,6 +299,11 @@ jobs:
           # the app somewhere Spotlight and Launchpad actually index.
           mkdir -p staging
           cp -R build/pomodoro.app staging/Pomodoro.app
+          # Deployment changes Mach-O files, invalidating their original signatures.
+          # Sign the final bundle and its nested code before packaging. Ad-hoc signing
+          # does not replace Developer ID signing and notarization for Gatekeeper.
+          codesign --force --deep --sign - staging/Pomodoro.app
+          codesign --verify --deep --strict --verbose=2 staging/Pomodoro.app
           ln -s /Applications staging/Applications
 
           hdiutil create -volname "Pomodoro" -srcfolder staging -ov -format UDZO             "pomodoro-${{ github.ref_name }}-macos.dmg"

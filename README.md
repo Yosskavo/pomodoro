@@ -19,6 +19,22 @@ Built with C++17 and Qt 6 (Qt Quick / QML). One binary, no runtime dependencies 
 
 ## What's new
 
+### v1.6.0
+
+- Double-click the title bar to maximize or restore the window.
+- Hover over the mini timer to start, pause or resume a session without restoring the window.
+- Import and export tasks as JSON, including descriptions, checklists and session counts.
+  Import asks before replacing the current list; export a backup before switching lists.
+- Search within an opened YouTube or Spotify playlist. Selecting a filtered result
+  keeps the original playlist order for playback.
+- Long settings labels wrap, font summaries have a full-name tooltip, and completed
+  tasks are easier to read. Task counts show completed sessions against an estimate (`~`).
+- macOS tray actions are deferred until native callbacks return, and opening the menu
+  no longer also toggles the window. The reported M1 crash still needs confirmation
+  from an affected machine; this release does not claim a verified crash resolution.
+- The macOS app is ad-hoc signed and its signature checked before packaging. Developer
+  ID signing and notarization are still needed to avoid Gatekeeper approval prompts.
+
 ### v1.5.0
 
 - **Tasks get a description and a to-do list.** Open a task with its arrow to write what
@@ -150,12 +166,12 @@ distribution packages, which the app did not install, leave updating to you.
 
 ### About the security warnings
 
-The builds are not code-signed, so the first launch shows a warning: on Windows
-"Windows protected your PC … Unknown publisher" (click **More info → Run anyway**), and on
-macOS an unidentified-developer notice (right-click the app → **Open**). This is not a
-sign that anything is wrong with the download — it is what every unsigned application
-looks like. Removing it requires a paid code-signing certificate, which this project does
-not have; the CI is set up to sign automatically if one is ever added. Every release is
+Windows builds are unsigned unless a signing certificate is configured. macOS bundles
+are ad-hoc signed and verified after Qt deployment, before the disk image is built.
+This repairs bundle signatures but does **not** make the app a trusted Developer ID
+application: Gatekeeper may still require approval in **System Settings → Privacy &
+Security → Open Anyway**. Removing that requirement needs Developer ID signing and
+Apple notarization; ad-hoc signing alone cannot provide it. Every release is
 built in public by GitHub Actions from the tagged commit, so you can read exactly what
 went into it.
 
