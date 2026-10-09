@@ -17,6 +17,32 @@ Rectangle
 	signal tasksRequested()
 	signal musicPanelRequested()
 
+	function toggleMaximized()
+	{
+		if (rootMenu.Window.window.visibility === Window.Maximized)
+			rootMenu.Window.window.showNormal()
+		else
+			rootMenu.Window.window.showMaximized()
+	}
+
+	component TitleDragArea: MouseArea
+	{
+		property point pressedAt
+		onPressed: (mouse) => pressedAt = Qt.point(mouse.x, mouse.y)
+		onPositionChanged: (mouse) =>
+		{
+			if (pressed && Math.abs(mouse.x - pressedAt.x) + Math.abs(mouse.y - pressedAt.y) > Qt.styleHints.startDragDistance)
+				Window.window.startSystemMove()
+		}
+		onDoubleClicked:
+		{
+			if (Window.window.visibility === Window.Maximized)
+				Window.window.showNormal()
+			else
+				Window.window.showMaximized()
+		}
+	}
+
     color: rootMenu.themeColor
 
 	Behavior on color
@@ -30,11 +56,9 @@ Rectangle
         source: "assets/fonts/PlaywriteAR.ttf"
     }
 
-	MouseArea
+	TitleDragArea
 	{
         anchors.fill: parent
-        onPressed:
-			Window.window.startSystemMove()
     }
 
 	Button
@@ -343,11 +367,9 @@ Rectangle
 		anchors.verticalCenter: parent.verticalCenter
 		anchors.verticalCenterOffset: 20
 
-		MouseArea
+		TitleDragArea
 		{
 	        anchors.fill: parent
-	        onPressed:
-				Window.window.startSystemMove()
 	    }
 	}
 
@@ -462,10 +484,7 @@ Rectangle
             icon.color: "#e3e3e3"
             
             onClicked:
-                if (Window.window.visibility === Window.Maximized)
-                    Window.window.showNormal()
-                else
-                    Window.window.showMaximized()
+				rootMenu.toggleMaximized()
         }
 
 		Button
