@@ -4,6 +4,7 @@
 #include <QAbstractListModel>
 #include <QString>
 #include <QTimer>
+#include <QUrl>
 #include <QVector>
 
 #include <QtQml/qqmlregistration.h>
@@ -92,6 +93,11 @@ class TaskList : public QAbstractListModel
 		void	toggleActive(int row);
 		void	clearDone();
 
+		// Empty string means success. Imports replace the list after the UI confirms;
+		// validation and the atomic disk write finish before model notifications.
+		QString exportFile(const QUrl &url) const;
+		QString importFile(const QUrl &url);
+
 		// Counts a finished focus session towards the active task and returns its id, or
 		// an empty string when no task is active.
 		QString	creditFocusSession();
@@ -139,6 +145,7 @@ class TaskList : public QAbstractListModel
 		QString	storagePath() const;
 		void	load();
 		void	save();
+		QString writeFile(const QString &path) const;
 };
 
 #endif

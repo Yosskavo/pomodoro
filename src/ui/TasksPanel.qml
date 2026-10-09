@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 
 import Pomodoro
 
@@ -21,6 +22,44 @@ Item
 
 	property bool open: false
 	property color themeColor: "#12130F"
+	property string transferMessage: ""
+
+	FileDialog
+	{
+		id: exportTasks
+		title: "Export tasks"
+		fileMode: FileDialog.SaveFile
+		defaultSuffix: "json"
+		nameFilters: ["Pomodoro tasks (*.json)"]
+		onAccepted:
+		{
+			let error = rootPanel.tasks.exportFile(selectedFile)
+			rootPanel.transferMessage = error.length > 0 ? error : "Tasks exported."
+		}
+	}
+	FileDialog
+	{
+		id: importTasks
+		title: "Import tasks"
+		fileMode: FileDialog.OpenFile
+		nameFilters: ["Pomodoro tasks (*.json)"]
+		onAccepted: replaceTasks.open()
+	}
+	MessageDialog
+	{
+		id: replaceTasks
+		title: "Replace this task list?"
+		text: "Import replaces all current tasks, descriptions and checklists."
+		informativeText: "Export your current list first if you want to keep a backup."
+		buttons: MessageDialog.Yes | MessageDialog.No
+		onButtonClicked: (button, role) =>
+		{
+			if (button !== MessageDialog.Yes)
+				return
+			let error = rootPanel.tasks.importFile(importTasks.selectedFile)
+			rootPanel.transferMessage = error.length > 0 ? error : "Tasks imported."
+		}
+	}
 
 	// Single letter shortcuts have to stand down while a task is being typed -- in any of
 	// the drawer's fields, the descriptions and steps included.
@@ -313,7 +352,7 @@ Item
 							text: row.title
 							textFormat: Text.PlainText
 							color: "white"
-							opacity: row.done ? 0.5 : 1.0
+							opacity: row.done ? 0.8 : 1.0
 							font.pixelSize: 14
 							font.bold: row.active
 							font.strikeout: row.done
@@ -420,10 +459,13 @@ Item
 						{
 							anchors.verticalCenter: parent.verticalCenter
 
-							width: 38
+							width: Math.max(54, implicitWidth)
 							horizontalAlignment: Text.AlignHCenter
 
-							text: row.completed + "/" + row.estimate
+							text: row.completed + " / ~" + row.estimate
+							HoverHandler { id: tallyHover }
+							ToolTip.visible: tallyHover.hovered
+							ToolTip.text: "Completed sessions / estimated sessions"
 							color: "white"
 							opacity: 0.75
 							font.pixelSize: 13
@@ -694,13 +736,39 @@ Item
 			anchors.left: parent.left
 			anchors.right: parent.right
 
-			height: clearBtn.visible ? 64 : 12
+			height: transferActions.height + transferStatus.implicitHeight + (clearBtn.visible ? 56 : 12) + 20
+
+			Row
+			{
+				id: transferActions
+				anchors.top: parent.top
+				anchors.horizontalCenter: parent.horizontalCenter
+				spacing: 12
+				SmallButton { label: "Import…"; width: 110; height: 32; onClicked: importTasks.open() }
+				SmallButton { label: "Export…"; width: 110; height: 32; onClicked: exportTasks.open() }
+			}
+			Text
+			{
+				id: transferStatus
+				anchors.top: transferActions.bottom
+				anchors.topMargin: 6
+				anchors.left: parent.left
+				anchors.right: parent.right
+				anchors.margins: 20
+				text: rootPanel.transferMessage
+				textFormat: Text.PlainText
+				color: "white"
+				font.pixelSize: 12
+				wrapMode: Text.WordWrap
+			}
 
 			Button
 			{
 				id: clearBtn
 
-				anchors.centerIn: parent
+				anchors.horizontalCenter: parent.horizontalCenter
+				anchors.bottom: parent.bottom
+				anchors.bottomMargin: 12
 
 				width: parent.width - 40
 				height: 38

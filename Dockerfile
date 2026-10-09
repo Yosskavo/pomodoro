@@ -49,6 +49,8 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
         qt6-svg-plugins \
         qml6-module-qtquick \
         qml6-module-qtquick-controls \
+        qml6-module-qtquick-dialogs \
+        qml6-module-qt-labs-folderlistmodel \
         qml6-module-qtquick-templates \
         qml6-module-qtquick-window \
         qml6-module-qtqml-workerscript \

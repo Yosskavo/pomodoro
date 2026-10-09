@@ -1,6 +1,10 @@
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTest>
+#include <QTemporaryDir>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 #include "TaskList.hpp"
 
@@ -22,6 +26,8 @@ class TestTaskList : public QObject
 		void	survivesARestart();
 		void	notesAndStepsSurviveARestart();
 		void	stepsAreTrimmedAndCounted();
+		void transferPreservesDetails();
+		void invalidImportLeavesTasksUntouched();
 
 	private:
 		static void	wipe();
@@ -212,6 +218,69 @@ void	TestTaskList::survivesARestart()
 	QCOMPARE(reloaded.activeTaskId(), activeId);
 	QCOMPARE(reloaded.activeCompleted(), 1);
 	QCOMPARE(reloaded.activeEstimate(), 4);
+}
+
+void TestTaskList::transferPreservesDetails()
+{
+	QTemporaryDir directory;
+	QVERIFY(directory.isValid());
+	const QUrl url = QUrl::fromLocalFile(directory.filePath("tasks.json"));
+	TaskList tasks;
+	tasks.add(QStringLiteral("Original"), 3);
+	tasks.setNotes(0, QStringLiteral("Details\nsecond line"));
+	tasks.addStep(0, QStringLiteral("First step"));
+	tasks.setStepDone(0, 0, true);
+	tasks.creditFocusSession();
+	const QString id = tasks.activeTaskId();
+	QVERIFY(tasks.exportFile(url).isEmpty());
+	tasks.remove(0);
+	tasks.add(QStringLiteral("Replacement"));
+	QVERIFY(tasks.importFile(url).isEmpty());
+	QCOMPARE(tasks.count(), 1);
+	QCOMPARE(tasks.activeTaskId(), id);
+	QCOMPARE(tasks.activeTitle(), QStringLiteral("Original"));
+	QCOMPARE(tasks.activeCompleted(), 1);
+	QCOMPARE(tasks.activeEstimate(), 3);
+	QCOMPARE(tasks.activeStepsDone(), 1);
+	QCOMPARE(tasks.data(tasks.index(0), TaskList::NotesRole).toString(), QStringLiteral("Details\nsecond line"));
+	TaskList reloaded;
+	QCOMPARE(reloaded.activeTaskId(), id);
+	QCOMPARE(reloaded.activeStepsDone(), 1);
+}
+
+void TestTaskList::invalidImportLeavesTasksUntouched()
+{
+	QTemporaryDir directory;
+	QVERIFY(directory.isValid());
+	TaskList tasks;
+	tasks.add(QStringLiteral("Keep me"));
+	const QString id = tasks.activeTaskId();
+	const QUrl url = QUrl::fromLocalFile(directory.filePath("tasks.json"));
+	QVERIFY(tasks.exportFile(url).isEmpty());
+	QFile file(url.toLocalFile());
+	QVERIFY(file.open(QIODevice::ReadOnly));
+	const QJsonObject valid = QJsonDocument::fromJson(file.readAll()).object();
+	file.close();
+	QList<QByteArray> invalid{ "not json", "{}", "[]" };
+	QJsonObject newer = valid;
+	newer.insert("version", 999);
+	invalid.append(QJsonDocument(newer).toJson());
+	QJsonObject duplicate = valid;
+	QJsonArray array = valid.value("tasks").toArray();
+	array.append(array.first());
+	duplicate.insert("tasks", array);
+	invalid.append(QJsonDocument(duplicate).toJson());
+	for (const QByteArray &bytes : invalid)
+	{
+		QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+		QCOMPARE(file.write(bytes), bytes.size());
+		file.close();
+		QVERIFY(!tasks.importFile(url).isEmpty());
+		QCOMPARE(tasks.activeTaskId(), id);
+		QCOMPARE(tasks.activeTitle(), QStringLiteral("Keep me"));
+		QCOMPARE(tasks.count(), 1);
+	}
+	QVERIFY(!tasks.exportFile(QUrl("https://example.com/tasks.json")).isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestTaskList)

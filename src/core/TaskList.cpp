@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
+#include <QSet>
 #include <QStandardPaths>
 #include <QUuid>
 #include <QVariantMap>
@@ -544,12 +545,106 @@ void	TaskList::load()
 
 void	TaskList::save()
 {
-	QString	path = storagePath();
+	QString error = writeFile(storagePath());
+	if (!error.isEmpty())
+		qWarning() << "pomodoro:" << error;
+}
+
+QString TaskList::exportFile(const QUrl &url) const
+{
+	if (!url.isLocalFile())
+		return QStringLiteral("Choose a file on this computer.");
+	return writeFile(url.toLocalFile());
+}
+
+QString TaskList::importFile(const QUrl &url)
+{
+	if (!url.isLocalFile())
+		return QStringLiteral("Choose a file on this computer.");
+	QFile file(url.toLocalFile());
+	if (!file.open(QIODevice::ReadOnly))
+		return file.errorString();
+	if (file.size() > 10 * 1024 * 1024)
+		return QStringLiteral("The task file is too large (maximum 10 MB).");
+	QJsonParseError error;
+	const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+	const QJsonObject root = document.object();
+	if (error.error != QJsonParseError::NoError || !document.isObject()
+		|| root.value(QStringLiteral("version")).toInt(-1) != FormatVersion
+		|| !root.value(QStringLiteral("tasks")).isArray()
+		|| !root.value(QStringLiteral("activeTaskId")).isString())
+		return QStringLiteral("This is not a supported Pomodoro task file.");
+
+	QVector<Task> imported;
+	QSet<QString> ids;
+	for (const QJsonValue &value : root.value(QStringLiteral("tasks")).toArray())
+	{
+		const QJsonObject object = value.toObject();
+		Task task;
+		task.id = object.value(QStringLiteral("id")).toString();
+		task.title = object.value(QStringLiteral("title")).toString().simplified();
+		task.estimate = object.value(QStringLiteral("estimate")).toInt(-1);
+		task.completed = object.value(QStringLiteral("completed")).toInt(-1);
+		if (!value.isObject() || task.id.isEmpty() || ids.contains(task.id)
+			|| task.title.isEmpty() || task.title.size() > MaximumTitleLength
+			|| !object.value(QStringLiteral("done")).isBool()
+			|| task.estimate < 1 || task.estimate > MaximumEstimate || task.completed < 0
+			|| (object.contains(QStringLiteral("notes")) && !object.value(QStringLiteral("notes")).isString())
+			|| (object.contains(QStringLiteral("steps")) && !object.value(QStringLiteral("steps")).isArray()))
+			return QStringLiteral("The task file contains an invalid or duplicate task. Nothing was changed.");
+		task.done = object.value(QStringLiteral("done")).toBool();
+		task.notes = object.value(QStringLiteral("notes")).toString();
+		if (task.notes.size() > MaximumNotesLength)
+			return QStringLiteral("A task description is too long. Nothing was changed.");
+		const QJsonArray steps = object.value(QStringLiteral("steps")).toArray();
+		if (steps.size() > MaximumSteps)
+			return QStringLiteral("A task has too many steps. Nothing was changed.");
+		for (const QJsonValue &stepValue : steps)
+		{
+			const QJsonObject step = stepValue.toObject();
+			const QString text = step.value(QStringLiteral("text")).toString().simplified();
+			if (!stepValue.isObject() || text.isEmpty() || text.size() > MaximumStepLength
+				|| !step.value(QStringLiteral("done")).isBool())
+				return QStringLiteral("A checklist step is invalid. Nothing was changed.");
+			task.steps.append(Step{ text, step.value(QStringLiteral("done")).toBool() });
+		}
+		ids.insert(task.id);
+		imported.append(task);
+	}
+	const QString active = root.value(QStringLiteral("activeTaskId")).toString();
+	if (!active.isEmpty() && !ids.contains(active))
+		return QStringLiteral("The active task is missing from the file. Nothing was changed.");
+	for (const Task &task : imported)
+		if (task.id == active && task.done)
+			return QStringLiteral("A finished task cannot be active. Nothing was changed.");
+
+	// Write the proposed state before publishing it, and restore memory if writing
+	// fails. No signals or event processing occur while the candidate is installed.
+	const QVector<Task> previous = _tasks;
+	const QString previousActive = _activeId;
+	_tasks = imported;
+	_activeId = active;
+	const QString failure = writeFile(storagePath());
+	_tasks = previous;
+	_activeId = previousActive;
+	if (!failure.isEmpty())
+		return failure;
+	_saveTimer.stop();
+	beginResetModel();
+	_tasks = imported;
+	_activeId = active;
+	endResetModel();
+	emit countChanged();
+	emit activeChanged();
+	return QString();
+}
+
+QString TaskList::writeFile(const QString &path) const
+{
 
 	if (!QDir().mkpath(QFileInfo(path).absolutePath()))
 	{
-		qWarning() << "pomodoro: could not create the data directory for" << path;
-		return;
+		return QStringLiteral("Could not create the task file's directory.");
 	}
 
 	QJsonArray	array;
@@ -591,12 +686,14 @@ void	TaskList::save()
 
 	if (!file.open(QIODevice::WriteOnly))
 	{
-		qWarning() << "pomodoro: could not write" << path << file.errorString();
-		return;
+		return file.errorString();
 	}
 
-	file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+	const QByteArray bytes = QJsonDocument(root).toJson(QJsonDocument::Indented);
+	if (file.write(bytes) != bytes.size())
+		return file.errorString();
 
 	if (!file.commit())
-		qWarning() << "pomodoro: could not commit" << path << file.errorString();
+		return file.errorString();
+	return QString();
 }
