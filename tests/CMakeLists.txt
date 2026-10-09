@@ -58,3 +58,15 @@ target_link_libraries(tst_musicsources PRIVATE
 
 add_test(NAME MusicSources COMMAND tst_musicsources)
 set_tests_properties(MusicSources PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+qt_add_executable(tst_trayicon tst_trayicon.cpp ../src/core/TrayIcon.cpp)
+target_include_directories(tst_trayicon PRIVATE ../src/core)
+target_link_libraries(tst_trayicon PRIVATE Qt6::Widgets Qt6::Quick Qt6::Qml Qt6::Test)
+add_test(NAME TrayIcon COMMAND tst_trayicon)
+set_tests_properties(TrayIcon PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Exercise Cocoa and its native tray menu in CI, not only the offscreen backend.
+if(APPLE)
+	add_test(NAME TrayIconCocoa COMMAND tst_trayicon)
+	set_tests_properties(TrayIconCocoa PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_QUICK_BACKEND=software")
+endif()
