@@ -37,6 +37,7 @@ Item
 	signal spotifyRemoved(string uri)
 
 	readonly property bool typing: youtubeSearch.activeFocus || spotifySearch.activeFocus
+		|| youtubeFilter.activeFocus || spotifyFilter.activeFocus
 		|| stationLinkField.activeFocus || stationNameField.activeFocus
 		|| clientIdField.activeFocus || spotifyLinkField.activeFocus || rootPanel.searchKeyTyping
 
@@ -1023,6 +1024,13 @@ Item
 								rootPanel.playYouTube(0)
 						}
 					}
+					SearchField
+					{
+						id: youtubeFilter
+						width: parent.width
+						visible: MusicPlayer.youtube.resultsTitle.length > 0
+						placeholderText: "Find a song in this playlist"
+					}
 				}
 
 				ResultList
@@ -1034,7 +1042,8 @@ Item
 					anchors.right: parent.right
 
 					visible: MusicPlayer.youtube.available
-					model: MusicPlayer.youtube.results
+					sourceItems: MusicPlayer.youtube.results
+					filterText: youtubeFilter.visible ? youtubeFilter.text : ""
 					busy: MusicPlayer.youtube.searching
 					message: MusicPlayer.youtube.resultsError.length > 0
 						? MusicPlayer.youtube.resultsError
@@ -1383,15 +1392,24 @@ Item
 						}
 					}
 
+					SearchField
+					{
+						id: spotifyFilter
+						anchors.top: openedHeader.bottom
+						anchors.topMargin: 6
+						width: parent.width
+						placeholderText: "Find a song in this playlist"
+					}
 					ResultList
 					{
-						anchors.top: openedHeader.bottom
+						anchors.top: spotifyFilter.bottom
 						anchors.topMargin: 6
 						anchors.bottom: parent.bottom
 						anchors.left: parent.left
 						anchors.right: parent.right
 
-						model: MusicPlayer.spotify.results
+						sourceItems: MusicPlayer.spotify.results
+						filterText: spotifyFilter.text
 						busy: MusicPlayer.spotify.searching && MusicPlayer.spotify.results.length === 0
 						message: MusicPlayer.spotify.resultsError.length > 0
 							? MusicPlayer.spotify.resultsError
@@ -2187,6 +2205,11 @@ Item
 		property string message: ""
 		property bool wideImages: false
 		property var suggestions: []
+		property var sourceItems: []
+		property string filterText: ""
+		// Preserve the provider's index: filtering must not play a different song.
+		model: sourceItems.map((item, index) => Object.assign({}, item, { sourceIndex: index }))
+			.filter((item) => (item.title + " " + item.subtitle).toLowerCase().includes(filterText.trim().toLowerCase()))
 
 		// Songs get an "add to queue" button (Spotify lists).
 		property bool queueable: false
@@ -2347,7 +2370,8 @@ Item
 			TapHandler
 			{
 				onTapped:
-					list.activated(resultRow.index, resultRow.modelData)
+					list.activated(resultRow.modelData.sourceIndex !== undefined
+						? resultRow.modelData.sourceIndex : resultRow.index, resultRow.modelData)
 			}
 		}
 
