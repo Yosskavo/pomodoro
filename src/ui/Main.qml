@@ -780,6 +780,7 @@ Window
 
 		onRestoreRequested:
 			mainWindow.restoreWindow()
+		onToggleRequested: pomodoroTimer.toggle()
 	}
 
 	// Instantiated rather than merely referenced, so the bus name is claimed at start-up

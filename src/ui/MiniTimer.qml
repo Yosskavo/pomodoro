@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 
 import Pomodoro
 
@@ -18,6 +19,7 @@ Window
 
 	// Asked to bring the main window back.
 	signal restoreRequested()
+	signal toggleRequested()
 
 	// Sized from the digits, so a longer session ("100:00") or a wider font still fits.
 	readonly property int wantedWidth: Math.max(168, Math.ceil(timeLabel.implicitWidth) + 72)
@@ -191,6 +193,33 @@ Window
 			if (!dragArea.dragging)
 				rootMini.restoreRequested()
 		}
+	}
+
+	// Appears over the status dot without resizing the window under the pointer.
+	HoverHandler { id: miniHover }
+	Button
+	{
+		id: toggleButton
+		anchors.left: parent.left
+		anchors.leftMargin: 4
+		anchors.verticalCenter: parent.verticalCenter
+		width: 32
+		height: 36
+		visible: miniHover.hovered || hovered || pressed
+		icon.source: rootMini.timer.state === PomodoroTimer.Running
+			? "assets/icons/pauseSolid.svg" : "assets/icons/playSolid.svg"
+		icon.color: "white"
+		icon.width: 16
+		icon.height: 16
+		background: Rectangle
+		{
+			radius: 8
+			color: toggleButton.hovered ? Qt.darker(rootMini.themeColor, 1.3) : rootMini.themeColor
+		}
+		Accessible.name: rootMini.timer.state === PomodoroTimer.Running ? "Pause timer" : "Start or resume timer"
+		ToolTip.visible: hovered
+		ToolTip.text: Accessible.name
+		onClicked: rootMini.toggleRequested()
 	}
 
 	// Remembered once the window settles rather than on every pixel of a drag, which
